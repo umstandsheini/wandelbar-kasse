@@ -1,0 +1,8 @@
+{
+  "name": "wandelbar-kasse",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node tests/kern.test.mjs"
+  }
+}

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Wandelbar Kasse</title>
+  <meta name="description" content="Theken-Kasse der York:Wandelbar: Getränke zusammenrechnen, Pfand, Wechselgeld, Abendabrechnung.">
+  <meta name="theme-color" content="#0f6e6e" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#101416" media="(prefers-color-scheme: dark)">
+  <meta name="color-scheme" content="light dark">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Wandelbar">
+  <link rel="stylesheet" href="style.css">
+  <script src="version.js"></script>
+  <script src="vendor/qrcode.js"></script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <header class="kopf">
+    <div class="marke"><span class="marke-name">York:Wandelbar</span><span class="marke-zusatz">Kasse</span></div>
+    <nav class="reiter" aria-label="Bereiche">
+      <button type="button" data-ansicht="kasse" aria-current="page">Kasse</button>
+      <button type="button" data-ansicht="abend">Abend</button>
+      <button type="button" data-ansicht="gesamt">Gesamt</button>
+      <button type="button" data-ansicht="einstellungen" aria-label="Einstellungen">Preise</button>
+    </nav>
+  </header>
+
+  <div id="update-hinweis" class="update-hinweis" hidden>
+    Neue Version verfügbar. <button type="button" data-action="update">Neu laden</button>
+  </div>
+
+  <main>
+    <section id="ansicht-kasse" class="ansicht"></section>
+    <section id="ansicht-abend" class="ansicht" hidden></section>
+    <section id="ansicht-gesamt" class="ansicht" hidden></section>
+    <section id="ansicht-einstellungen" class="ansicht" hidden></section>
+  </main>
+
+  <footer id="summenleiste" class="summenleiste"></footer>
+
+  <dialog id="dialog" class="dialog" aria-labelledby="dialog-titel"></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <noscript><p class="karte">Diese Kasse braucht JavaScript.</p></noscript>
+</body>
+</html>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <clipPath id="innen">
+      <path d="M186 152 H326 L307 364 Q305 378 291 378 H221 Q207 378 205 364 Z"/>
+    </clipPath>
+  </defs>
+  <rect width="512" height="512" fill="#0f6e6e"/>
+  <path d="M160 126 H352 L328 382 Q325 404 303 404 H209 Q187 404 184 382 Z" fill="#f4f1ea"/>
+  <path d="M186 152 H326 L307 364 Q305 378 291 378 H221 Q207 378 205 364 Z" fill="#0b5454"/>
+  <g clip-path="url(#innen)">
+    <path d="M150 236 C 188 208, 222 208, 256 236 S 324 264, 362 236 V 400 H 150 Z" fill="#f0b43c"/>
+    <circle cx="232" cy="300" r="9" fill="#fbe3a6"/>
+    <circle cx="272" cy="332" r="6" fill="#fbe3a6"/>
+    <circle cx="258" cy="276" r="5" fill="#fbe3a6"/>
+  </g>
+</svg>
