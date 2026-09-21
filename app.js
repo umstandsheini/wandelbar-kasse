@@ -31,6 +31,7 @@ const S = {
   gesamt: laden('gesamt', []),
   name: laden('name', ''),
   mitEigenem: laden('mitEigenem', true),
+  wach: laden('wach', true), // Display anlassen, solange die Kasse offen ist
 };
 if (!S.config || !Array.isArray(S.config.getraenke)) S.config = K.standardConfig();
 S.bestellung = laden('bestellung', null) || K.neueBestellung(S.config);
@@ -553,6 +554,15 @@ function renderEinstellungen() {
   const el = $('#ansicht-einstellungen');
   const ueber = `
     <section class="karte">
+      <h3>Bildschirm anlassen</h3>
+      <p class="klein">Das Handy sperrt sich nicht, solange die Kasse offen ist. Gilt nur für dieses Handy, keine PIN nötig.</p>
+      <div class="schalter" role="group" aria-label="Bildschirm anlassen">
+        <button type="button" data-action="wach" data-wert="0" aria-pressed="${!S.wach}">Aus</button>
+        <button type="button" data-action="wach" data-wert="1" aria-pressed="${S.wach}">An</button>
+      </div>
+      <p id="wach-status" class="klein fuss" aria-live="polite">${esc(wachStatusText())}</p>
+    </section>
+    <section class="karte">
       <h3>Über diese Kasse</h3>
       <p class="klein">${S.config.zaehlen
         ? 'Verkäufe werden mitgezählt (Abend und Gesamt sind eingeschaltet).'
@@ -1050,9 +1060,18 @@ const AKTIONEN = {
     if (neuerWorker) neuerWorker.postMessage('skipWaiting');
     else location.reload();
   },
+  wach(btn) {
+    S.wach = btn.dataset.wert === '1';
+    speichern('wach', S.wach);
+    if (S.wach) wachHalten();
+    else wachFreigeben();
+    renderEinstellungen();
+  },
 };
 
 document.addEventListener('click', (e) => {
+  // Manche Browser (Safari) erlauben die Display-Sperre nur nach einem Antippen
+  if (S.wach && !wakeLock) wachHalten();
   const el = e.target.closest('[data-action], [data-ansicht]');
   if (!el || el.disabled) return;
   if (el.dataset.ansicht) return zeige(el.dataset.ansicht);
@@ -1099,6 +1118,56 @@ document.addEventListener('change', (e) => {
 
 window.addEventListener('hashchange', pruefeLink);
 
+// ---------- Display wach halten (Screen Wake Lock) ----------
+
+let wakeLock = null;
+let wachAnfrage = null;
+const kannWach = 'wakeLock' in navigator;
+
+function wachHalten() {
+  if (!S.wach || !kannWach || wakeLock || wachAnfrage || document.visibilityState !== 'visible') return;
+  wachAnfrage = navigator.wakeLock.request('screen')
+    .then((lock) => {
+      if (!S.wach) return lock.release();
+      wakeLock = lock;
+      lock.addEventListener('release', () => {
+        if (wakeLock === lock) wakeLock = null;
+        zeigeWachStatus();
+      });
+    })
+    .catch(() => {
+      // z. B. Energiesparmodus – beim nächsten Antippen neuer Versuch
+    })
+    .finally(() => {
+      wachAnfrage = null;
+      zeigeWachStatus();
+    });
+}
+
+function wachFreigeben() {
+  const lock = wakeLock;
+  wakeLock = null;
+  lock?.release().catch(() => {});
+  zeigeWachStatus();
+}
+
+function wachStatusText() {
+  if (!kannWach) return 'Dieser Browser kann das Display nicht wach halten. Stell stattdessen in den Handy-Einstellungen die automatische Bildschirmsperre auf einen längeren Wert.';
+  if (!S.wach) return 'Das Handy sperrt sich wie gewohnt.';
+  if (wakeLock) return 'Aktiv: Das Display bleibt an, solange die Kasse im Vordergrund offen ist.';
+  return 'Wird beim nächsten Antippen aktiviert. Klappt es nicht, ist vielleicht der Energiesparmodus an.';
+}
+
+function zeigeWachStatus() {
+  const el = $('#wach-status');
+  if (el) el.textContent = wachStatusText();
+}
+
+// Der Browser gibt die Sperre frei, sobald die Seite verdeckt ist – beim Zurückkommen neu anfordern
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') wachHalten();
+});
+
 // ---------- Offline / Updates ----------
 
 let neuerWorker = null;
@@ -1131,3 +1200,4 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 
 zeige('kasse');
 pruefeLink();
+wachHalten();

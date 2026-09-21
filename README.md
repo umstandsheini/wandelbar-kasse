@@ -36,6 +36,7 @@ Der Schalter wird mit der Preisliste an die anderen Handys weitergegeben. Wird e
 
 ## Gut zu wissen
 
+- **Display bleibt an:** Solange die Kasse offen und im Vordergrund ist, sperrt sich das Handy nicht. Das lässt sich pro Handy unter **Preise → Bildschirm anlassen** abschalten, eine PIN braucht es dafür nicht. Das funktioniert in aktuellen Browsern (Chrome/Android, Safari ab iOS 16.4), im Energiesparmodus aber eventuell nicht. Kostet etwas Akku, eine Powerbank an der Theke hilft.
 - Alle Daten liegen nur im Browser des jeweiligen Handys. Leert man dort die Browserdaten, sind Zählung und Preise weg. Die Preisliste kommt dann einfach wieder über den Link.
 - **iPhone mit Symbol auf dem Home-Bildschirm:** Diese App-Ansicht hat einen eigenen Speicher, getrennt von Safari. Ein angetippter Link öffnet sich in Safari statt in der App. Deshalb kopierst du den Link und fügst ihn in der App ein (unter **Preise** bzw. **Gesamt**). Einfacher ist es, die Kasse als normales Lesezeichen in Safari zu nutzen.
 
