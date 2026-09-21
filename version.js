@@ -1,2 +1,2 @@
 // Bei jeder Änderung an der App hochzählen, damit Handys die neue Version laden.
-self.APP_VERSION = '1.2.0';
+self.APP_VERSION = '1.2.1';

@@ -586,7 +586,7 @@ function renderEinstellungen() {
         <h3>Neue Preisliste bekommen</h3>
         <p class="klein">Hat jemand die Preise geändert, öffne den Link oder scanne den QR-Code mit der Kamera. Nutzt du die Kasse auf dem iPhone über ein Symbol auf dem Home-Bildschirm, füge den Link lieber hier ein:</p>
         ${importFormHtml()}
-        <p class="klein fuss">Deine Preisliste: ${S.config.stand ? `Stand ${datum(S.config.stand)}` : 'Beispielwerte, noch nie geändert'} · ${S.config.getraenke.length} Getränke</p>
+        <p class="klein fuss">Deine Preisliste: ${S.config.stand ? `Stand ${datum(S.config.stand)}` : 'Startwerte, noch nie geändert'} · ${S.config.getraenke.length} Getränke</p>
       </section>
       ${ueber}`;
     return;

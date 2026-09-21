@@ -2,16 +2,17 @@
 
 export const PIN_STANDARD = '1234';
 
-const BEISPIEL_GETRAENKE = [
+// Startwerte für ein neues Handy (Preisliste der York:Wandelbar)
+const START_GETRAENKE = [
   ['Wasser', 150, true],
   ['Apfelschorle', 200, true],
   ['Cola', 200, true],
   ['Bier', 250, true],
   ['Radler', 250, true],
   ['Alkoholfreies', 250, true],
-  ['Wein', 300, true],
-  ['Kaffee', 150, false],
-  ['Tee', 150, false],
+  ['Wein', 400, true],
+  ['Weißbier', 350, true],
+  ['Aperol', 600, true],
 ];
 
 export function zufallsId() {
@@ -25,7 +26,7 @@ export function standardConfig() {
     // Verkäufe mitzählen (Abend/Gesamt). Aus = reine Rechenhilfe, siehe README (KassenSichV).
     zaehlen: false,
     pinHash: null,
-    getraenke: BEISPIEL_GETRAENKE.map(([name, preisCent, pfand]) => ({ id: zufallsId(), name, preisCent, pfand })),
+    getraenke: START_GETRAENKE.map(([name, preisCent, pfand]) => ({ id: zufallsId(), name, preisCent, pfand })),
     stand: null,
   };
 }

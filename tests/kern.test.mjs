@@ -199,7 +199,11 @@ test('CSV', () => {
 
 test('Standard-Config ist gültig und teilbar, Mitzählen ist aus', () => {
   const c = standardConfig();
-  assert.ok(c.getraenke.length > 0);
+  assert.deepEqual(c.getraenke.map((g) => `${g.name} ${euro(g.preisCent)}`), [
+    'Wasser', 'Apfelschorle', 'Cola', 'Bier', 'Radler', 'Alkoholfreies', 'Wein', 'Weißbier', 'Aperol',
+  ].map((n, i) => `${n} ${euro([150, 200, 200, 250, 250, 250, 400, 350, 600][i])}`));
+  assert.ok(c.getraenke.every((g) => g.pfand));
+  assert.equal(c.pfandCent, 100);
   assert.equal(c.zaehlen, false);
   const { typ, daten } = leseCode(preislisteZuCode(c));
   assert.equal(typ, 'preise');
