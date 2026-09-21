@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {
   euro, csvZahl, parseEuro, standardConfig, neueBestellung, bestellSumme, buchungAus,
   rueckgeld, schnellBetraege, neuerAbend, abendBuchen, abendStornieren, abrechnungAusAbend,
-  zusammenfuehren, preislisteZuCode, abrechnungZuCode, leseCode, csv, einnahmen,
+  zusammenfuehren, preislisteZuCode, abrechnungZuCode, leseCode, csv, einnahmen, kodiere,
 } from '../kern.js';
 
 const NBSP = ' ';
@@ -152,11 +152,13 @@ test('Preisliste: Link hin und zurück', () => {
   c.getraenke.push({ id: 'x', name: 'Schorle „süß“ 0,3 l', preisCent: 220, pfand: true });
   c.pinHash = 'a'.repeat(64);
   c.pfandStandardAn = false;
+  c.zaehlen = true;
   const link = 'https://example.org/kasse/#preise=' + preislisteZuCode(c);
   const { typ, daten } = leseCode(link);
   assert.equal(typ, 'preise');
   assert.equal(daten.pfandCent, 100);
   assert.equal(daten.pfandStandardAn, false);
+  assert.equal(daten.zaehlen, true);
   assert.equal(daten.pinHash, 'a'.repeat(64));
   assert.equal(daten.stand, c.stand);
   assert.deepEqual(daten.getraenke.map(({ name, preisCent, pfand }) => [name, preisCent, pfand]),
@@ -195,8 +197,17 @@ test('CSV', () => {
   assert.ok(zeilen.includes('"Anna; Ben";2026-09-21T18:00:00.000Z;2026-09-21T18:00:00.000Z;1;6,00'));
 });
 
-test('Standard-Config ist gültig und teilbar', () => {
+test('Standard-Config ist gültig und teilbar, Mitzählen ist aus', () => {
   const c = standardConfig();
   assert.ok(c.getraenke.length > 0);
-  assert.equal(leseCode(preislisteZuCode(c)).typ, 'preise');
+  assert.equal(c.zaehlen, false);
+  const { typ, daten } = leseCode(preislisteZuCode(c));
+  assert.equal(typ, 'preise');
+  assert.equal(daten.zaehlen, false);
+});
+
+test('alte Preisliste-Links ohne Zähl-Schalter bedeuten: nicht mitzählen', () => {
+  const c = config();
+  const code = kodiere({ v: 1, t: 'p', s: c.stand, p: 100, d: 1, h: 0, g: [['Bier', 250, 1]] });
+  assert.equal(leseCode(code).daten.zaehlen, false);
 });

@@ -74,22 +74,30 @@ function zeitraum(start, ende) {
 // ---------- Navigation ----------
 
 const ANSICHTEN = ['kasse', 'abend', 'gesamt', 'einstellungen'];
+const ZAEHL_ANSICHTEN = ['abend', 'gesamt'];
 
 function zeige(name) {
   if (ansicht === 'einstellungen' && name !== 'einstellungen' && entwurfGeaendert()) {
     toast('Achtung: Preisänderungen sind noch nicht gespeichert');
   }
+  if (!S.config.zaehlen && ZAEHL_ANSICHTEN.includes(name)) name = 'kasse';
   ansicht = name;
   for (const v of ANSICHTEN) $('#ansicht-' + v).hidden = v !== name;
-  document.querySelectorAll('.reiter button').forEach((b) => {
-    if (b.dataset.ansicht === name) b.setAttribute('aria-current', 'page');
-    else b.removeAttribute('aria-current');
-  });
+  aktualisiereReiter();
   const mitLeiste = name === 'kasse';
   $('#summenleiste').hidden = !mitLeiste;
   document.body.classList.toggle('mit-leiste', mitLeiste);
   render();
   window.scrollTo(0, 0);
+}
+
+// Abend/Gesamt nur zeigen, wenn Verkäufe mitgezählt werden
+function aktualisiereReiter() {
+  document.querySelectorAll('.reiter button').forEach((b) => {
+    b.hidden = !S.config.zaehlen && ZAEHL_ANSICHTEN.includes(b.dataset.ansicht);
+    if (b.dataset.ansicht === ansicht) b.setAttribute('aria-current', 'page');
+    else b.removeAttribute('aria-current');
+  });
 }
 
 function render() {
@@ -167,6 +175,7 @@ function bestellungGeaendert() {
 }
 
 function tippen() {
+  if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
   try {
     navigator.vibrate?.(10);
   } catch {
@@ -231,6 +240,21 @@ function buchen() {
   const sum = K.bestellSumme(S.bestellung, S.config);
   schliesseDialog();
   if (sum.leer) return;
+  const betrag = sum.summeCent < 0 ? `Ausgezahlt: ${K.euro(-sum.summeCent)}` : `Kassiert: ${K.euro(sum.summeCent)}`;
+  if (!S.config.zaehlen) {
+    // Reine Rechenhilfe: nichts aufzeichnen, nur die nächste Bestellung beginnen
+    const alt = S.bestellung;
+    S.bestellung = K.neueBestellung(S.config);
+    bestellungGeaendert();
+    toast(betrag, {
+      text: 'Rückgängig',
+      fn: () => {
+        S.bestellung = alt;
+        bestellungGeaendert();
+      },
+    });
+    return;
+  }
   S.abend = K.abendBuchen(S.abend, K.buchungAus(sum));
   S.bestellung = K.neueBestellung(S.config);
   speichern('abend', S.abend);
@@ -392,7 +416,27 @@ function importiere(text, ausLink = false) {
   else zeigeAbrechnungImport(ergebnis.daten);
 }
 
-const vergleichbar = (c) => JSON.stringify([c.pfandCent, c.pfandStandardAn, c.pinHash, c.getraenke.map((g) => [g.name, g.preisCent, g.pfand])]);
+const vergleichbar = (c) => JSON.stringify([c.pfandCent, c.pfandStandardAn, !!c.zaehlen, c.pinHash, c.getraenke.map((g) => [g.name, g.preisCent, g.pfand])]);
+
+// ---------- Mitzählen an/aus ----------
+
+const hatZaehlDaten = () => S.abend.bestellungen > 0 || S.gesamt.length > 0;
+
+function zaehlDatenText() {
+  const teile = [];
+  if (S.abend.bestellungen > 0) {
+    teile.push(`${anzahlText(S.abend.bestellungen, 'Bestellung', 'Bestellungen')} (${K.euro(K.einnahmen(S.abend))}) in der Abendzählung`);
+  }
+  if (S.gesamt.length > 0) teile.push(anzahlText(S.gesamt.length, 'gesammelte Abrechnung', 'gesammelte Abrechnungen'));
+  return `Auf diesem Handy gibt es noch ${teile.join(' und ')}. Beim Ausschalten werden diese Daten gelöscht. Schick vorher die Abrechnung an den Kassenwart oder lade die CSV herunter.`;
+}
+
+function zaehlDatenLoeschen() {
+  S.abend = K.neuerAbend();
+  S.gesamt = [];
+  speichern('abend', S.abend);
+  speichern('gesamt', S.gesamt);
+}
 
 function zeigePreisImport(p) {
   if (vergleichbar(p) === vergleichbar(S.config)) {
@@ -400,10 +444,19 @@ function zeigePreisImport(p) {
     return;
   }
   const aelter = p.stand && S.config.stand && p.stand < S.config.stand;
+  let zaehlHinweis = '';
+  if (S.config.zaehlen && !p.zaehlen) {
+    zaehlHinweis = hatZaehlDaten()
+      ? `<p class="warnung">Mit dieser Preisliste wird das Mitzählen der Verkäufe ausgeschaltet. ${esc(zaehlDatenText())}</p>`
+      : '<p class="info">Mit dieser Preisliste wird das Mitzählen der Verkäufe ausgeschaltet (nur noch Rechner).</p>';
+  } else if (!S.config.zaehlen && p.zaehlen) {
+    zaehlHinweis = '<p class="info">Mit dieser Preisliste wird das Mitzählen der Verkäufe eingeschaltet (Abend und Gesamt).</p>';
+  }
   oeffneDialog(`
     <h2 id="dialog-titel">Neue Preisliste übernehmen?</h2>
     <p class="klein">Stand ${datum(p.stand)} · Pfand ${K.euro(p.pfandCent)}</p>
     ${aelter ? `<p class="warnung">Achtung: Diese Liste ist älter als deine aktuelle (Stand ${datum(S.config.stand)}).</p>` : ''}
+    ${zaehlHinweis}
     <table>
       <thead><tr><th>Getränk</th><th class="zahl">Preis</th><th class="zahl">Pfand</th></tr></thead>
       <tbody>${p.getraenke.map((g) => `<tr><td>${esc(g.name)}</td><td class="zahl">${K.euro(g.preisCent)}</td><td class="zahl">${g.pfand ? '✓' : '–'}</td></tr>`).join('')}</tbody>
@@ -428,6 +481,7 @@ function preiseUebernehmen() {
     if (n && id) posten[id] = n;
   }
   S.bestellung.posten = posten;
+  if (!neu.zaehlen) zaehlDatenLoeschen();
   S.config = neu;
   entwurf = null;
   entsperrt = false;
@@ -438,6 +492,10 @@ function preiseUebernehmen() {
 }
 
 function zeigeAbrechnungImport(a) {
+  if (!S.config.zaehlen) {
+    info('Mitzählen ist ausgeschaltet', '<p>Auf diesem Handy ist das Mitzählen der Verkäufe ausgeschaltet. Abrechnungen können hier nicht gesammelt werden. Einschalten lässt es sich unter „Preise“ (mit PIN).</p>');
+    return;
+  }
   if (a.id === S.abend.id) {
     info('Eigene Abrechnung', '<p>Das ist die Abrechnung von diesem Handy. Sie zählt unter „Gesamt“ über „Eigenen Abend mitzählen“ mit.</p>');
     return;
@@ -485,6 +543,7 @@ function pruefeLink() {
 const entwurfAus = (c) => ({
   pfand: K.csvZahl(c.pfandCent),
   pfandStandardAn: c.pfandStandardAn,
+  zaehlen: !!c.zaehlen,
   getraenke: c.getraenke.map((g) => ({ id: g.id, name: g.name, preis: K.csvZahl(g.preisCent), pfand: g.pfand })),
 });
 
@@ -495,6 +554,9 @@ function renderEinstellungen() {
   const ueber = `
     <section class="karte">
       <h3>Über diese Kasse</h3>
+      <p class="klein">${S.config.zaehlen
+        ? 'Verkäufe werden mitgezählt (Abend und Gesamt sind eingeschaltet).'
+        : 'Nur Rechner: Verkäufe werden nicht gespeichert. Die Einnahmen erfasst ihr am Abend per Kassenbericht.'}</p>
       <p class="klein">Alle Daten bleiben auf diesem Handy. Es wird nichts an einen Server geschickt, nur die Links, die du selbst teilst, enthalten Preise oder Abrechnungen.</p>
       <p class="klein">Version ${esc(VERSION)}</p>
     </section>`;
@@ -551,6 +613,17 @@ function renderEinstellungen() {
         <button type="button" class="an" data-action="e-pfand-standard" data-wert="1" aria-pressed="${entwurf.pfandStandardAn}">Mit Pfand</button>
         <button type="button" class="aus" data-action="e-pfand-standard" data-wert="0" aria-pressed="${!entwurf.pfandStandardAn}">Ohne Pfand</button>
       </div>
+    </section>
+    <section class="karte">
+      <h3>Verkäufe mitzählen</h3>
+      <p class="klein">Schaltet „Abend“ (Tagesübersicht, Storno, Abrechnung senden, CSV) und „Gesamt“ (Abrechnungen sammeln) ein oder aus. Ausgeschaltet ist die App eine reine Rechenhilfe und speichert keine Verkäufe.</p>
+      <div class="schalter" role="group" aria-label="Verkäufe mitzählen">
+        <button type="button" data-action="e-zaehlen" data-wert="0" aria-pressed="${!entwurf.zaehlen}">Aus: nur Rechner</button>
+        <button type="button" data-action="e-zaehlen" data-wert="1" aria-pressed="${entwurf.zaehlen}">An: mitzählen</button>
+      </div>
+      ${entwurf.zaehlen
+        ? '<p class="warnung fuss">Eingeschaltet zeichnet die App Verkäufe elektronisch auf. Sie kann dann steuerlich als elektronische Kasse gelten (KassenSichV), und dafür fehlt ihr u. a. die vorgeschriebene TSE. Nur einschalten, wenn Vorstand oder Steuerberatung das geklärt haben.</p>'
+        : '<p class="klein fuss">Die Einnahmen erfasst ihr dann am Abend per Kassenbericht: Kasse zählen, Wechselgeld vom Anfang abziehen, bar bezahlte Ausgaben (mit Beleg) wieder dazurechnen, unterschreiben und aufbewahren.</p>'}
     </section>
     <p id="e-fehler" class="warnung" hidden></p>
     <div class="knopfleiste">
@@ -617,7 +690,7 @@ async function pinAendern(form) {
   toast('PIN geändert. Gib sie mit der Preisliste an die anderen weiter.');
 }
 
-function entwurfSpeichern() {
+function entwurfSpeichern(loeschenBestaetigt = false) {
   if (!entwurfGeaendert()) return toast('Keine Änderungen');
   document.querySelectorAll('.eingabe.falsch').forEach((e) => e.classList.remove('falsch'));
   const fehler = [];
@@ -652,7 +725,26 @@ function entwurfSpeichern() {
     el.scrollIntoView({ block: 'center', behavior: 'smooth' });
     return;
   }
-  S.config = { ...S.config, pfandCent, pfandStandardAn: entwurf.pfandStandardAn, getraenke, stand: new Date().toISOString() };
+  const ausschalten = S.config.zaehlen && !entwurf.zaehlen;
+  if (ausschalten && hatZaehlDaten() && !loeschenBestaetigt) {
+    bestaetige({
+      titel: 'Mitzählen ausschalten?',
+      text: `<p class="warnung">${esc(zaehlDatenText())}</p>`,
+      ja: 'Ausschalten und löschen',
+      aktion: 'e-speichern-ja',
+      gefahr: true,
+    });
+    return;
+  }
+  if (ausschalten) zaehlDatenLoeschen();
+  S.config = {
+    ...S.config,
+    pfandCent,
+    pfandStandardAn: entwurf.pfandStandardAn,
+    zaehlen: entwurf.zaehlen,
+    getraenke,
+    stand: new Date().toISOString(),
+  };
   for (const id of Object.keys(S.bestellung.posten)) {
     if (!getraenke.some((g) => g.id === id)) delete S.bestellung.posten[id];
   }
@@ -660,6 +752,7 @@ function entwurfSpeichern() {
   speichern('bestellung', S.bestellung);
   entwurf = entwurfAus(S.config);
   renderEinstellungen();
+  aktualisiereReiter();
   toast('Gespeichert. Jetzt noch an die anderen Handys geben.');
 }
 
@@ -934,7 +1027,15 @@ const AKTIONEN = {
     entwurf.pfandStandardAn = btn.dataset.wert === '1';
     renderEinstellungen();
   },
-  'e-speichern': entwurfSpeichern,
+  'e-zaehlen'(btn) {
+    entwurf.zaehlen = btn.dataset.wert === '1';
+    renderEinstellungen();
+  },
+  'e-speichern': () => entwurfSpeichern(false),
+  'e-speichern-ja'() {
+    schliesseDialog();
+    entwurfSpeichern(true);
+  },
   'e-verwerfen'() {
     entwurf = entwurfAus(S.config);
     renderEinstellungen();

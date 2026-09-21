@@ -123,7 +123,8 @@ p { margin: 0 0 10px; }
 
 .reiter {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   gap: 4px;
   max-width: 720px;
   margin: 0 auto;
@@ -141,6 +142,8 @@ p { margin: 0 0 10px; }
   font-size: 0.95rem;
   color: var(--leise);
 }
+
+.reiter button[hidden] { display: none; }
 
 .reiter button[aria-current="page"] {
   background: var(--flaeche);
@@ -186,7 +189,7 @@ main { max-width: 720px; margin: 0 auto; padding: 14px 16px 0; }
 
 /* ---------- Kasse ---------- */
 
-.pfandschalter {
+.pfandschalter, .schalter {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 4px;
@@ -195,7 +198,7 @@ main { max-width: 720px; margin: 0 auto; padding: 14px 16px 0; }
   border-radius: 14px;
 }
 
-.pfandschalter button {
+.pfandschalter button, .schalter button {
   min-height: 52px;
   border: 0;
   border-radius: 11px;
@@ -207,6 +210,8 @@ main { max-width: 720px; margin: 0 auto; padding: 14px 16px 0; }
 
 .pfandschalter button[aria-pressed="true"].an { background: var(--pfand); color: #1f1600; box-shadow: var(--schatten); }
 .pfandschalter button[aria-pressed="true"].aus { background: var(--text); color: var(--bg); box-shadow: var(--schatten); }
+.schalter button { font-size: 0.95rem; }
+.schalter button[aria-pressed="true"] { background: var(--flaeche); color: var(--text); box-shadow: var(--schatten), 0 0 0 2px var(--akzent) inset; }
 
 .raster {
   display: grid;

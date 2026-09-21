@@ -22,6 +22,8 @@ export function standardConfig() {
   return {
     pfandCent: 100,
     pfandStandardAn: true,
+    // Verkäufe mitzählen (Abend/Gesamt). Aus = reine Rechenhilfe, siehe README (KassenSichV).
+    zaehlen: false,
     pinHash: null,
     getraenke: BEISPIEL_GETRAENKE.map(([name, preisCent, pfand]) => ({ id: zufallsId(), name, preisCent, pfand })),
     stand: null,
@@ -264,6 +266,7 @@ export function preislisteZuCode(config) {
     s: config.stand,
     p: config.pfandCent,
     d: config.pfandStandardAn ? 1 : 0,
+    z: config.zaehlen ? 1 : 0,
     h: config.pinHash || 0,
     g: config.getraenke.map((g) => [g.name, g.preisCent, g.pfand ? 1 : 0]),
   });
@@ -279,6 +282,7 @@ export function codeZuPreisliste(daten) {
   return {
     pfandCent: daten.p,
     pfandStandardAn: daten.d !== 0,
+    zaehlen: daten.z === 1,
     pinHash: typeof daten.h === 'string' && /^[0-9a-f]{64}$/.test(daten.h) ? daten.h : null,
     getraenke: daten.g.map(([name, preisCent, pfand]) => ({ id: zufallsId(), name: name.trim(), preisCent, pfand: pfand === 1 })),
     stand: daten.s,
