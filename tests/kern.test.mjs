@@ -171,7 +171,8 @@ test('Abrechnung: Link hin und zurück, auch als reiner Code', () => {
   const abend = abendBuchen(neuerAbend(), buchungAus(bestellSumme({ posten: { bier: 2, kaffee: 1 }, mitPfand: true, zurueck: 1 }, c)));
   const a = abrechnungAusAbend(abend, 'Jörg');
   const code = abrechnungZuCode(a);
-  assert.deepEqual(leseCode(`Hier meine Abrechnung: https://x.y/#abrechnung=${code} danke`).daten, a);
+  assert.deepEqual(leseCode(`Hier meine Zählliste: https://x.y/#zaehlliste=${code} danke`).daten, a);
+  assert.deepEqual(leseCode(`alter Link: https://x.y/#abrechnung=${code}`).daten, a, 'Links älterer Versionen gehen weiter');
   assert.deepEqual(leseCode(code).daten, a);
 });
 
@@ -193,21 +194,21 @@ test('CSV', () => {
   assert.equal(zeilen[0], 'York:Wandelbar;Gesamt');
   assert.ok(zeilen.includes('Bier;2;5,00'));
   assert.ok(zeilen.includes('Pfand zurück;1;-1,00'));
-  assert.ok(zeilen.includes('Kasseneinnahmen;;6,00'));
+  assert.ok(zeilen.includes('Rechnerischer Wert;;6,00'));
   assert.ok(zeilen.includes('"Anna; Ben";2026-09-21T18:00:00.000Z;2026-09-21T18:00:00.000Z;1;6,00'));
 });
 
-test('Standard-Config ist gültig und teilbar, Mitzählen ist aus', () => {
+test('Standard-Config ist gültig und teilbar', () => {
   const c = standardConfig();
   assert.deepEqual(c.getraenke.map((g) => `${g.name} ${euro(g.preisCent)}`), [
     'Wasser', 'Apfelschorle', 'Cola', 'Bier', 'Radler', 'Alkoholfreies', 'Wein', 'Weißbier', 'Aperol',
   ].map((n, i) => `${n} ${euro([150, 200, 200, 250, 250, 250, 400, 350, 600][i])}`));
   assert.ok(c.getraenke.every((g) => g.pfand));
   assert.equal(c.pfandCent, 100);
-  assert.equal(c.zaehlen, false);
+  assert.equal(c.zaehlen, true);
   const { typ, daten } = leseCode(preislisteZuCode(c));
   assert.equal(typ, 'preise');
-  assert.equal(daten.zaehlen, false);
+  assert.equal(daten.zaehlen, true);
 });
 
 test('alte Preisliste-Links ohne Zähl-Schalter bedeuten: nicht mitzählen', () => {

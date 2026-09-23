@@ -1,7 +1,7 @@
 {
-  "name": "York:Wandelbar Kasse",
+  "name": "York:Wandelbar Rechenhilfe",
   "short_name": "Wandelbar",
-  "description": "Theken-Kasse der York:Wandelbar",
+  "description": "Rechenhilfe für die Theke der York:Wandelbar",
   "lang": "de",
   "start_url": "./",
   "scope": "./",

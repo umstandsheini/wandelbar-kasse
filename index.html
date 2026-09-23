@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Wandelbar Kasse</title>
-  <meta name="description" content="Theken-Kasse der York:Wandelbar: Getränke zusammenrechnen, Pfand, Wechselgeld, Abendabrechnung.">
+  <title>Wandelbar Rechenhilfe</title>
+  <meta name="description" content="Rechenhilfe für die Theke der York:Wandelbar: Getränke zusammenrechnen, Pfand, Rückgeld, Strichliste der ausgegebenen Getränke.">
   <meta name="theme-color" content="#0f6e6e" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#101416" media="(prefers-color-scheme: dark)">
   <meta name="color-scheme" content="light dark">
@@ -20,10 +20,10 @@
 </head>
 <body>
   <header class="kopf">
-    <div class="marke"><span class="marke-name">York:Wandelbar</span><span class="marke-zusatz">Kasse</span></div>
+    <div class="marke"><span class="marke-name">York:Wandelbar</span><span class="marke-zusatz">Rechenhilfe</span></div>
     <nav class="reiter" aria-label="Bereiche">
-      <button type="button" data-ansicht="kasse" aria-current="page">Kasse</button>
-      <button type="button" data-ansicht="abend">Abend</button>
+      <button type="button" data-ansicht="kasse" aria-current="page">Rechner</button>
+      <button type="button" data-ansicht="abend">Zählung</button>
       <button type="button" data-ansicht="gesamt">Gesamt</button>
       <button type="button" data-ansicht="einstellungen" aria-label="Einstellungen">Preise</button>
     </nav>
@@ -45,6 +45,6 @@
   <dialog id="dialog" class="dialog" aria-labelledby="dialog-titel"></dialog>
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
-  <noscript><p class="karte">Diese Kasse braucht JavaScript.</p></noscript>
+  <noscript><p class="karte">Diese Rechenhilfe braucht JavaScript.</p></noscript>
 </body>
 </html>

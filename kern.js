@@ -23,8 +23,8 @@ export function standardConfig() {
   return {
     pfandCent: 100,
     pfandStandardAn: true,
-    // Verkäufe mitzählen (Abend/Gesamt). Aus = reine Rechenhilfe, siehe README (KassenSichV).
-    zaehlen: false,
+    // Getränkeausgaben zählen (Strichliste unter „Zählung“/„Gesamt“). Aus = nur rechnen, nichts speichern.
+    zaehlen: true,
     pinHash: null,
     getraenke: START_GETRAENKE.map(([name, preisCent, pfand]) => ({ id: zufallsId(), name, preisCent, pfand })),
     stand: null,
@@ -337,7 +337,8 @@ export function codeZuAbrechnung(d) {
 // Liest einen geteilten Link oder den reinen Code. Ergebnis: { typ: 'preise' | 'abrechnung', daten }
 export function leseCode(text) {
   const s = String(text || '').trim();
-  const treffer = s.match(/#(?:preise|abrechnung)=([A-Za-z0-9_-]+)/);
+  // „abrechnung“ stammt aus älteren Versionen und wird weiter gelesen
+  const treffer = s.match(/#(?:preise|zaehlliste|abrechnung)=([A-Za-z0-9_-]+)/);
   const code = treffer ? treffer[1] : s;
   if (!/^[A-Za-z0-9_-]+$/.test(code)) throw new Error('Kein gültiger Link oder Code');
   let roh;
@@ -358,13 +359,13 @@ function csvFeld(x) {
   return /[;"\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
 
-export function csv(z, { titel = 'Abrechnung', quellen = [], datum = (iso) => iso || '' } = {}) {
+export function csv(z, { titel = 'Zählliste', quellen = [], datum = (iso) => iso || '' } = {}) {
   const zeilen = [
     ['York:Wandelbar', titel],
     ['Zeitraum', datum(z.start), datum(z.ende)],
-    ['Bestellungen', z.bestellungen],
+    ['Ausgaben', z.bestellungen],
     [],
-    ['Getränk', 'Anzahl', 'Umsatz (EUR)'],
+    ['Getränk', 'Anzahl', 'Wert (EUR)'],
     ...z.verkauft.map((v) => [v.name, v.anzahl, csvZahl(v.cent)]),
     ['Getränke gesamt', z.getraenkeAnzahl, csvZahl(z.getraenkeCent)],
     [],
@@ -372,10 +373,11 @@ export function csv(z, { titel = 'Abrechnung', quellen = [], datum = (iso) => is
     ['Pfand zurück', z.pfandZurueck, csvZahl(-z.pfandZurueckCent)],
     ['Pfand-Saldo', '', csvZahl(z.pfandAusCent - z.pfandZurueckCent)],
     [],
-    ['Kasseneinnahmen', '', csvZahl(z.einnahmenCent)],
+    ['Rechnerischer Wert', '', csvZahl(z.einnahmenCent)],
+    ['Hinweis', 'Strichliste der ausgegebenen Getränke, keine Kassenaufzeichnung'],
   ];
   if (quellen.length) {
-    zeilen.push([], ['Abrechnungen', 'Von', 'Bis', 'Bestellungen', 'Einnahmen (EUR)']);
+    zeilen.push([], ['Zähllisten', 'Von', 'Bis', 'Ausgaben', 'Wert (EUR)']);
     for (const q of quellen) {
       zeilen.push([q.name || '(ohne Name)', datum(q.start), datum(q.ende), q.bestellungen, csvZahl(einnahmen(q))]);
     }

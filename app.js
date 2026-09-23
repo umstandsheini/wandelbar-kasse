@@ -31,7 +31,7 @@ const S = {
   gesamt: laden('gesamt', []),
   name: laden('name', ''),
   mitEigenem: laden('mitEigenem', true),
-  wach: laden('wach', true), // Display anlassen, solange die Kasse offen ist
+  wach: laden('wach', true), // Display anlassen, solange die Seite offen ist
 };
 if (!S.config || !Array.isArray(S.config.getraenke)) S.config = K.standardConfig();
 S.bestellung = laden('bestellung', null) || K.neueBestellung(S.config);
@@ -63,7 +63,7 @@ const fmtTag = new Intl.DateTimeFormat('sv-SE', { year: 'numeric', month: '2-dig
 const datum = (iso) => (iso ? fmtDatum.format(new Date(iso)) : '–');
 
 function zeitraum(start, ende) {
-  if (!start) return 'noch keine Bestellung';
+  if (!start) return 'noch nichts gezählt';
   const s = new Date(start);
   const e = new Date(ende || start);
   if (fmtDatum.format(s) === fmtDatum.format(e)) return `${fmtDatum.format(s)} Uhr`;
@@ -92,7 +92,7 @@ function zeige(name) {
   window.scrollTo(0, 0);
 }
 
-// Abend/Gesamt nur zeigen, wenn Verkäufe mitgezählt werden
+// Zählung/Gesamt nur zeigen, wenn Getränkeausgaben gezählt werden
 function aktualisiereReiter() {
   document.querySelectorAll('.reiter button').forEach((b) => {
     b.hidden = !S.config.zaehlen && ZAEHL_ANSICHTEN.includes(b.dataset.ansicht);
@@ -116,7 +116,7 @@ function renderKasse() {
   const knoepfe = config.getraenke.map((g) => {
     const n = bestellung.posten[g.id] || 0;
     return `<button type="button" class="getraenk${n ? ' gewaehlt' : ''}" data-action="plus" data-id="${esc(g.id)}"
-        aria-label="${esc(g.name)}, ${K.euro(g.preisCent)}${n ? `, ${n} in der Bestellung` : ''}">
+        aria-label="${esc(g.name)}, ${K.euro(g.preisCent)}${n ? `, ${n} in dieser Ausgabe` : ''}">
       <span class="g-name">${esc(g.name)}</span>
       <span class="g-unten"><span class="g-preis">${K.euro(g.preisCent)}</span>${g.pfand ? '<span class="g-pfand">+ Pfand</span>' : ''}</span>
       ${n ? `<span class="zaehler" aria-hidden="true">${n}</span>` : ''}
@@ -124,7 +124,7 @@ function renderKasse() {
   });
 
   $('#ansicht-kasse').innerHTML = `
-    <div class="pfandschalter" role="group" aria-label="Pfand für diese Bestellung">
+    <div class="pfandschalter" role="group" aria-label="Pfand für diese Ausgabe">
       <button type="button" class="an" data-action="pfand" data-wert="1" aria-pressed="${bestellung.mitPfand}">Mit Pfand</button>
       <button type="button" class="aus" data-action="pfand" data-wert="0" aria-pressed="${!bestellung.mitPfand}">Ohne Pfand</button>
     </div>
@@ -133,12 +133,12 @@ function renderKasse() {
       <span>↩ Pfand zurück <span class="einzel">je ${K.euro(-config.pfandCent)}</span></span>
       ${sum.zurueck ? `<span class="zaehler">${sum.zurueck}</span>` : ''}
     </button>
-    <section class="karte bon" aria-label="Bestellung">${bonHtml(sum)}</section>`;
+    <section class="karte bon" aria-label="Aktuelle Ausgabe">${bonHtml(sum)}</section>`;
   renderLeiste(sum);
 }
 
 function bonHtml(sum) {
-  if (sum.leer) return '<p class="bon-leer">Getränke antippen, um eine Bestellung zu beginnen.</p>';
+  if (sum.leer) return '<p class="bon-leer">Getränke antippen, um eine Ausgabe zusammenzustellen.</p>';
   const zeilen = sum.zeilen.map((z) => `
     <div class="bon-zeile">
       <span class="text">${z.anzahl}× ${esc(z.name)} <span class="einzel">à ${K.euro(z.einzelCent)}</span></span>
@@ -158,15 +158,15 @@ function bonHtml(sum) {
 }
 
 function renderLeiste(sum) {
-  const auszahlen = sum.summeCent < 0;
+  const erstattung = sum.summeCent < 0;
   $('#summenleiste').innerHTML = `
     <div class="leiste-innen">
       <div aria-live="polite">
-        <span class="summe-label">${auszahlen ? 'Auszahlen' : 'Summe'}</span>
-        <span class="summe-betrag${auszahlen ? ' auszahlen' : ''}">${K.euro(Math.abs(sum.summeCent))}</span>
+        <span class="summe-label">${erstattung ? 'Erstattung' : 'Summe'}</span>
+        <span class="summe-betrag${erstattung ? ' auszahlen' : ''}">${K.euro(Math.abs(sum.summeCent))}</span>
       </div>
       <button type="button" class="knopf" data-action="leeren" ${sum.leer ? 'disabled' : ''}>Leeren</button>
-      <button type="button" class="knopf primaer" data-action="kassieren" ${sum.leer ? 'disabled' : ''}>Kassieren</button>
+      <button type="button" class="knopf primaer" data-action="kassieren" ${sum.leer ? 'disabled' : ''}>Abschließen</button>
     </div>`;
 }
 
@@ -195,7 +195,7 @@ function oeffneKassieren() {
       .map((c) => `<button type="button" class="knopf" data-action="gegeben" data-cent="${c}" aria-pressed="false">${K.euro(c).replace(',00', '')}</button>`)
       .join('');
     inhalt = `
-      <p class="zu-zahlen">Zu zahlen <strong>${K.euro(s)}</strong></p>
+      <p class="zu-zahlen">Summe <strong>${K.euro(s)}</strong></p>
       <p class="klein">Gegeben:</p>
       <div class="schnell">
         <button type="button" class="knopf" data-action="gegeben" data-cent="${s}" aria-pressed="false">Passend</button>
@@ -206,13 +206,13 @@ function oeffneKassieren() {
       </label>
       <div id="rueckgeld" class="rueckgeld" aria-live="polite">Rückgeld erscheint hier</div>`;
   } else if (s < 0) {
-    inhalt = `<p class="zu-zahlen auszahlen">Pfand auszahlen <strong>${K.euro(-s)}</strong></p>
-      <p class="klein">Gib dem Gast den Betrag aus der Kasse.</p>`;
+    inhalt = `<p class="zu-zahlen auszahlen">Betrag <strong>${K.euro(-s)}</strong></p>
+      <p class="klein">Der Gast bekommt diesen Betrag zurück.</p>`;
   } else {
-    inhalt = `<p class="zu-zahlen">Nichts zu zahlen <strong>${K.euro(0)}</strong></p>`;
+    inhalt = `<p class="zu-zahlen">Nichts offen <strong>${K.euro(0)}</strong></p>`;
   }
   oeffneDialog(`
-    <h2 id="dialog-titel">${s < 0 ? 'Auszahlen' : 'Kassieren'}</h2>
+    <h2 id="dialog-titel">${s < 0 ? 'Pfand erstatten' : 'Ausgabe abschließen'}</h2>
     ${inhalt}
     <div class="aktionen">
       <button type="button" class="knopf" data-action="dialog-schliessen">Zurück</button>
@@ -241,9 +241,9 @@ function buchen() {
   const sum = K.bestellSumme(S.bestellung, S.config);
   schliesseDialog();
   if (sum.leer) return;
-  const betrag = sum.summeCent < 0 ? `Ausgezahlt: ${K.euro(-sum.summeCent)}` : `Kassiert: ${K.euro(sum.summeCent)}`;
+  const betrag = sum.summeCent < 0 ? `Erstattet: ${K.euro(-sum.summeCent)}` : `Abgeschlossen: ${K.euro(sum.summeCent)}`;
   if (!S.config.zaehlen) {
-    // Reine Rechenhilfe: nichts aufzeichnen, nur die nächste Bestellung beginnen
+    // Ohne Zählung wird nichts gespeichert, es beginnt einfach die nächste Ausgabe
     const alt = S.bestellung;
     S.bestellung = K.neueBestellung(S.config);
     bestellungGeaendert();
@@ -261,7 +261,7 @@ function buchen() {
   speichern('abend', S.abend);
   speichern('bestellung', S.bestellung);
   render();
-  toast(sum.summeCent < 0 ? `Ausgezahlt: ${K.euro(-sum.summeCent)}` : `Gebucht: ${K.euro(sum.summeCent)}`);
+  toast(`${betrag} · gezählt`);
 }
 
 // ---------- Abend ----------
@@ -270,18 +270,20 @@ function uebersichtHtml(z, titel) {
   const saldo = z.pfandAusCent - z.pfandZurueckCent;
   const getraenke = z.verkauft.length
     ? `<table>
-        <thead><tr><th>Getränk</th><th class="zahl">Anzahl</th><th class="zahl">Umsatz</th></tr></thead>
+        <thead><tr><th>Getränk</th><th class="zahl">Anzahl</th><th class="zahl">Wert</th></tr></thead>
         <tbody>${z.verkauft.map((v) => `<tr><td>${esc(v.name)}</td><td class="zahl">${v.anzahl}</td><td class="zahl">${K.euro(v.cent)}</td></tr>`).join('')}</tbody>
         <tfoot><tr><td>Gesamt</td><td class="zahl">${z.getraenkeAnzahl}</td><td class="zahl">${K.euro(z.getraenkeCent)}</td></tr></tfoot>
       </table>`
-    : '<p class="klein">Noch nichts verkauft.</p>';
+    : '<p class="klein">Noch nichts ausgegeben.</p>';
   return `
     <section class="karte einnahmen-karte">
       <span class="summe-label">${titel}</span>
       <span class="summe-betrag">${K.euro(z.einnahmenCent)}</span>
-      <span class="meta">${anzahlText(z.bestellungen, 'Bestellung', 'Bestellungen')} · ${zeitraum(z.start, z.ende)}</span>
+      <span class="meta">${anzahlText(z.bestellungen, 'Ausgabe', 'Ausgaben')} · ${z.getraenkeAnzahl} Getränke · ${zeitraum(z.start, z.ende)}</span>
     </section>
-    <section class="karte"><h3>Getränke</h3>${getraenke}</section>
+    <section class="karte"><h3>Ausgegebene Getränke</h3>${getraenke}
+      <p class="klein fuss">Der Wert ist aus der Preisliste gerechnet. Er ist keine Kasseneinnahme: Was tatsächlich in der Kasse liegt, zählt ihr am Ende des Abends.</p>
+    </section>
     <section class="karte">
       <h3>Pfand</h3>
       <table>
@@ -301,27 +303,28 @@ function renderAbend() {
   const leer = z.bestellungen === 0;
   $('#ansicht-abend').innerHTML = `
     <section class="karte">
-      <label class="feld">Dein Name <span class="klein">(steht auf der Abrechnung)</span>
+      <label class="feld">Dein Name <span class="klein">(steht auf der Zählliste)</span>
         <input id="name-eingabe" class="eingabe" value="${esc(S.name)}" maxlength="60" autocomplete="given-name" placeholder="z. B. Anna">
       </label>
     </section>
-    ${uebersichtHtml(z, 'Kasseneinnahmen auf diesem Handy')}
+    ${uebersichtHtml(z, 'Rechnerischer Wert auf diesem Handy')}
     <div class="knopfleiste">
-      <button type="button" class="knopf primaer voll" data-action="abrechnung-senden" ${leer ? 'disabled' : ''}>Abrechnung an Kassenwart senden</button>
-      <button type="button" class="knopf voll" data-action="storno" ${S.abend.letzte ? '' : 'disabled'}>Letzte Bestellung stornieren</button>
+      <button type="button" class="knopf primaer voll" data-action="abrechnung-senden" ${leer ? 'disabled' : ''}>Zählliste weitergeben</button>
+      <button type="button" class="knopf voll" data-action="storno" ${S.abend.letzte ? '' : 'disabled'}>Letzte Ausgabe zurücknehmen</button>
       <button type="button" class="knopf voll" data-action="csv-abend" ${leer ? 'disabled' : ''}>Als CSV herunterladen</button>
-      <button type="button" class="knopf gefahr voll" data-action="neuer-abend" ${leer ? 'disabled' : ''}>Neuen Abend starten</button>
-    </div>`;
+      <button type="button" class="knopf gefahr voll" data-action="neuer-abend" ${leer ? 'disabled' : ''}>Neue Zählung starten</button>
+    </div>
+    <p class="klein">Diese Zählung ist eine Strichliste der ausgegebenen Getränke. Sie enthält keine einzelnen Zahlungsvorgänge und ersetzt den Kassenbericht nicht.</p>`;
 }
 
 function abrechnungSenden() {
   const a = K.abrechnungAusAbend(S.abend, S.name);
   oeffneTeilen({
-    titel: 'Abrechnung senden',
-    erklaerung: 'Schick den Link an den Kassenwart (z. B. per WhatsApp) oder lass ihn den QR-Code mit der Handykamera scannen. Er übernimmt die Abrechnung dann unter „Gesamt“.',
-    hinweis: S.name ? '' : 'Tipp: Trag unter „Abend“ deinen Namen ein, damit der Kassenwart weiß, von wem die Abrechnung ist.',
-    link: `${linkBasis()}#abrechnung=${K.abrechnungZuCode(a)}`,
-    text: `York:Wandelbar – Abrechnung von ${S.name || 'ohne Namen'}: ${K.euro(K.einnahmen(a))}, ${anzahlText(a.bestellungen, 'Bestellung', 'Bestellungen')}`,
+    titel: 'Zählliste weitergeben',
+    erklaerung: 'Schick den Link an die Person, die alles zusammenzählt (z. B. per WhatsApp), oder lass den QR-Code mit der Handykamera scannen. Dort landet die Liste unter „Gesamt“.',
+    hinweis: S.name ? '' : 'Tipp: Trag unter „Zählung“ deinen Namen ein, damit klar ist, von wem die Liste stammt.',
+    link: `${linkBasis()}#zaehlliste=${K.abrechnungZuCode(a)}`,
+    text: `York:Wandelbar – Zählliste von ${S.name || 'ohne Namen'}: ${a.verkauft.reduce((s, [, n]) => s + n, 0)} Getränke, rechnerisch ${K.euro(K.einnahmen(a))}`,
     fertig: () => {
       S.abend.gesendet = true;
       speichern('abend', S.abend);
@@ -337,9 +340,9 @@ function stornoFragen() {
   if (l.pfandZurueck) teile.push(`${l.pfandZurueck}× Pfand zurück`);
   const betrag = l.posten.reduce((s, [, , c]) => s + c, 0) + l.pfandAusCent - l.pfandZurueckCent;
   bestaetige({
-    titel: 'Letzte Bestellung stornieren?',
-    text: `<p>${teile.join(', ')}</p><p class="zu-zahlen">Betrag <strong>${K.euro(betrag)}</strong></p>`,
-    ja: 'Stornieren',
+    titel: 'Letzte Ausgabe zurücknehmen?',
+    text: `<p>${teile.join(', ')}</p><p class="zu-zahlen">Wert <strong>${K.euro(betrag)}</strong></p>`,
+    ja: 'Zurücknehmen',
     aktion: 'storno-ja',
     gefahr: true,
   });
@@ -347,8 +350,8 @@ function stornoFragen() {
 
 function neuerAbendFragen() {
   bestaetige({
-    titel: 'Neuen Abend starten?',
-    text: `${S.abend.gesendet ? '' : '<p class="warnung">Die Abrechnung wurde von hier noch nicht geteilt. Schick sie vorher an den Kassenwart oder lass den QR-Code scannen.</p>'}
+    titel: 'Neue Zählung starten?',
+    text: `${S.abend.gesendet ? '' : '<p class="warnung">Die Zählliste wurde von hier noch nicht weitergegeben. Schick sie vorher weiter, lass den QR-Code scannen oder lade die CSV herunter.</p>'}
       <p>Die Zählung auf diesem Handy wird auf null gesetzt.</p>`,
     ja: 'Neu starten',
     aktion: 'neuer-abend-ja',
@@ -356,7 +359,7 @@ function neuerAbendFragen() {
   });
 }
 
-// ---------- Gesamt (Kassenwart) ----------
+// ---------- Gesamt (alle Zähllisten zusammen) ----------
 
 function gesamtQuellen() {
   const quellen = [...S.gesamt];
@@ -371,25 +374,25 @@ function renderGesamt() {
   const liste = S.gesamt.length
     ? S.gesamt.map((a) => `
         <div class="quelle">
-          <div><div class="name">${esc(a.name || '(ohne Name)')}</div><div class="klein">${zeitraum(a.start, a.ende)} · ${a.bestellungen} Best.</div></div>
+          <div><div class="name">${esc(a.name || '(ohne Name)')}</div><div class="klein">${zeitraum(a.start, a.ende)} · ${a.verkauft.reduce((s, [, n]) => s + n, 0)} Getränke</div></div>
           <strong>${K.euro(K.einnahmen(a))}</strong>
-          <button type="button" class="mini gefahr" data-action="quelle-entfernen" data-id="${esc(a.id)}" aria-label="Abrechnung von ${esc(a.name || 'ohne Name')} entfernen">✕</button>
+          <button type="button" class="mini gefahr" data-action="quelle-entfernen" data-id="${esc(a.id)}" aria-label="Zählliste von ${esc(a.name || 'ohne Name')} entfernen">✕</button>
         </div>`).join('')
-    : '<p class="klein">Noch keine Abrechnungen übernommen.</p>';
+    : '<p class="klein">Noch keine Zähllisten übernommen.</p>';
 
   $('#ansicht-gesamt').innerHTML = `
     <section class="karte">
-      <h3>Abrechnungen sammeln</h3>
-      <p class="klein">Für den Kassenwart: Am Ende des Abends schicken alle ihre Abrechnung als Link. Öffne die Links oder scanne die QR-Codes mit der Kamera, dann landen sie hier. Klappt das nicht, füge den Link hier ein:</p>
+      <h3>Zähllisten sammeln</h3>
+      <p class="klein">Am Ende des Abends schicken alle ihre Zählliste als Link. Öffne die Links oder scanne die QR-Codes mit der Kamera, dann landen sie hier. Klappt das nicht, füge den Link hier ein:</p>
       ${importFormHtml()}
     </section>
     <section class="karte">
       <h3>Übernommen (${S.gesamt.length})</h3>
       ${liste}
       <label class="check"><input type="checkbox" id="mit-eigenem" ${S.mitEigenem ? 'checked' : ''}>
-        Eigenen Abend von diesem Handy mitzählen${S.abend.bestellungen ? ` (${K.euro(K.einnahmen(S.abend))})` : ''}</label>
+        Eigene Zählung von diesem Handy mitzählen${S.abend.bestellungen ? ` (${K.euro(K.einnahmen(S.abend))})` : ''}</label>
     </section>
-    ${uebersichtHtml(z, 'Einnahmen gesamt')}
+    ${uebersichtHtml(z, 'Rechnerischer Wert aller Zähllisten')}
     <div class="knopfleiste">
       <button type="button" class="knopf voll" data-action="csv-gesamt" ${z.bestellungen ? '' : 'disabled'}>Als CSV herunterladen</button>
       <button type="button" class="knopf gefahr voll" data-action="gesamt-leeren" ${S.gesamt.length ? '' : 'disabled'}>Liste leeren</button>
@@ -426,10 +429,10 @@ const hatZaehlDaten = () => S.abend.bestellungen > 0 || S.gesamt.length > 0;
 function zaehlDatenText() {
   const teile = [];
   if (S.abend.bestellungen > 0) {
-    teile.push(`${anzahlText(S.abend.bestellungen, 'Bestellung', 'Bestellungen')} (${K.euro(K.einnahmen(S.abend))}) in der Abendzählung`);
+    teile.push(`${anzahlText(S.abend.bestellungen, 'Ausgabe', 'Ausgaben')} (${K.euro(K.einnahmen(S.abend))}) in der Zählung`);
   }
-  if (S.gesamt.length > 0) teile.push(anzahlText(S.gesamt.length, 'gesammelte Abrechnung', 'gesammelte Abrechnungen'));
-  return `Auf diesem Handy gibt es noch ${teile.join(' und ')}. Beim Ausschalten werden diese Daten gelöscht. Schick vorher die Abrechnung an den Kassenwart oder lade die CSV herunter.`;
+  if (S.gesamt.length > 0) teile.push(anzahlText(S.gesamt.length, 'gesammelte Zählliste', 'gesammelte Zähllisten'));
+  return `Auf diesem Handy gibt es noch ${teile.join(' und ')}. Beim Ausschalten werden diese Daten gelöscht. Gib die Zählliste vorher weiter oder lade die CSV herunter.`;
 }
 
 function zaehlDatenLoeschen() {
@@ -448,10 +451,10 @@ function zeigePreisImport(p) {
   let zaehlHinweis = '';
   if (S.config.zaehlen && !p.zaehlen) {
     zaehlHinweis = hatZaehlDaten()
-      ? `<p class="warnung">Mit dieser Preisliste wird das Mitzählen der Verkäufe ausgeschaltet. ${esc(zaehlDatenText())}</p>`
-      : '<p class="info">Mit dieser Preisliste wird das Mitzählen der Verkäufe ausgeschaltet (nur noch Rechner).</p>';
+      ? `<p class="warnung">Mit dieser Preisliste wird das Zählen der Getränkeausgaben ausgeschaltet. ${esc(zaehlDatenText())}</p>`
+      : '<p class="info">Mit dieser Preisliste wird das Zählen der Getränkeausgaben ausgeschaltet (nur noch Rechner).</p>';
   } else if (!S.config.zaehlen && p.zaehlen) {
-    zaehlHinweis = '<p class="info">Mit dieser Preisliste wird das Mitzählen der Verkäufe eingeschaltet (Abend und Gesamt).</p>';
+    zaehlHinweis = '<p class="info">Mit dieser Preisliste wird das Zählen der Getränkeausgaben eingeschaltet („Zählung“ und „Gesamt“).</p>';
   }
   oeffneDialog(`
     <h2 id="dialog-titel">Neue Preisliste übernehmen?</h2>
@@ -473,7 +476,7 @@ function preiseUebernehmen() {
   const neu = ausstehend;
   schliesseDialog();
   if (!neu) return;
-  // Offene Bestellung über die Namen auf die neuen IDs umhängen
+  // Angefangene Ausgabe über die Namen auf die neuen IDs umhängen
   const nameZuId = new Map(neu.getraenke.map((g) => [g.name, g.id]));
   const posten = {};
   for (const g of S.config.getraenke) {
@@ -494,25 +497,25 @@ function preiseUebernehmen() {
 
 function zeigeAbrechnungImport(a) {
   if (!S.config.zaehlen) {
-    info('Mitzählen ist ausgeschaltet', '<p>Auf diesem Handy ist das Mitzählen der Verkäufe ausgeschaltet. Abrechnungen können hier nicht gesammelt werden. Einschalten lässt es sich unter „Preise“ (mit PIN).</p>');
+    info('Zählen ist ausgeschaltet', '<p>Auf diesem Handy ist das Zählen der Getränkeausgaben ausgeschaltet. Zähllisten können hier nicht gesammelt werden. Einschalten lässt es sich unter „Preise“ (mit PIN).</p>');
     return;
   }
   if (a.id === S.abend.id) {
-    info('Eigene Abrechnung', '<p>Das ist die Abrechnung von diesem Handy. Sie zählt unter „Gesamt“ über „Eigenen Abend mitzählen“ mit.</p>');
+    info('Eigene Zählliste', '<p>Das ist die Zählliste von diesem Handy. Sie zählt unter „Gesamt“ über „Eigene Zählung mitzählen“ mit.</p>');
     return;
   }
   const vorhanden = S.gesamt.find((x) => x.id === a.id);
   if (vorhanden && JSON.stringify(vorhanden) === JSON.stringify(a)) {
-    info('Schon übernommen', `<p>Die Abrechnung von ${esc(a.name || '(ohne Name)')} ist schon in der Gesamtliste.</p>`);
+    info('Schon übernommen', `<p>Die Zählliste von ${esc(a.name || '(ohne Name)')} ist schon in der Gesamtliste.</p>`);
     return;
   }
   const vorhandenNeuer = vorhanden && (vorhanden.ende || '') > (a.ende || '');
   oeffneDialog(`
-    <h2 id="dialog-titel">Abrechnung übernehmen?</h2>
+    <h2 id="dialog-titel">Zählliste übernehmen?</h2>
     <p><strong>${esc(a.name || '(ohne Name)')}</strong><br><span class="klein">${zeitraum(a.start, a.ende)}</span></p>
-    <p class="zu-zahlen">Einnahmen <strong>${K.euro(K.einnahmen(a))}</strong></p>
-    <p class="klein">${anzahlText(a.bestellungen, 'Bestellung', 'Bestellungen')} · ${anzahlText(a.verkauft.reduce((s, [, n]) => s + n, 0), 'Getränk', 'Getränke')}</p>
-    ${vorhanden ? `<p class="${vorhandenNeuer ? 'warnung' : 'info'}">Von dieser Abrechnung gibt es schon eine ${vorhandenNeuer ? 'NEUERE' : 'ältere'} Version (${K.euro(K.einnahmen(vorhanden))}). Sie wird ersetzt.</p>` : ''}
+    <p class="zu-zahlen">${anzahlText(a.verkauft.reduce((s, [, n]) => s + n, 0), 'Getränk', 'Getränke')} <strong>${K.euro(K.einnahmen(a))}</strong></p>
+    <p class="klein">${anzahlText(a.bestellungen, 'Ausgabe', 'Ausgaben')} · rechnerischer Wert</p>
+    ${vorhanden ? `<p class="${vorhandenNeuer ? 'warnung' : 'info'}">Von dieser Zählliste gibt es schon eine ${vorhandenNeuer ? 'NEUERE' : 'ältere'} Version (${K.euro(K.einnahmen(vorhanden))}). Sie wird ersetzt.</p>` : ''}
     <div class="aktionen">
       <button type="button" class="knopf" data-action="dialog-schliessen">Abbrechen</button>
       <button type="button" class="knopf primaer" data-action="abrechnung-uebernehmen">Übernehmen</button>
@@ -529,12 +532,12 @@ function abrechnungUebernehmen() {
   else S.gesamt.push(a);
   speichern('gesamt', S.gesamt);
   zeige('gesamt');
-  toast(`Abrechnung von ${a.name || '(ohne Name)'} übernommen`);
+  toast(`Zählliste von ${a.name || '(ohne Name)'} übernommen`);
 }
 
 function pruefeLink() {
   const h = location.hash;
-  if (!/^#(preise|abrechnung)=/.test(h)) return;
+  if (!/^#(preise|zaehlliste|abrechnung)=/.test(h)) return;
   history.replaceState(null, '', location.pathname + location.search);
   importiere(h, true);
 }
@@ -555,7 +558,7 @@ function renderEinstellungen() {
   const ueber = `
     <section class="karte">
       <h3>Bildschirm anlassen</h3>
-      <p class="klein">Das Handy sperrt sich nicht, solange die Kasse offen ist. Gilt nur für dieses Handy, keine PIN nötig.</p>
+      <p class="klein">Das Handy sperrt sich nicht, solange die Rechenhilfe offen ist. Gilt nur für dieses Handy, keine PIN nötig.</p>
       <div class="schalter" role="group" aria-label="Bildschirm anlassen">
         <button type="button" data-action="wach" data-wert="0" aria-pressed="${!S.wach}">Aus</button>
         <button type="button" data-action="wach" data-wert="1" aria-pressed="${S.wach}">An</button>
@@ -563,11 +566,12 @@ function renderEinstellungen() {
       <p id="wach-status" class="klein fuss" aria-live="polite">${esc(wachStatusText())}</p>
     </section>
     <section class="karte">
-      <h3>Über diese Kasse</h3>
+      <h3>Über diese Rechenhilfe</h3>
+      <p class="klein">Diese Seite rechnet Getränkepreise, Pfand und Rückgeld zusammen. Sie erfasst keine einzelnen Zahlungsvorgänge und ist kein Kassensystem: Was tatsächlich eingenommen wurde, zählt ihr am Ende des Abends in der Kasse.</p>
       <p class="klein">${S.config.zaehlen
-        ? 'Verkäufe werden mitgezählt (Abend und Gesamt sind eingeschaltet).'
-        : 'Nur Rechner: Verkäufe werden nicht gespeichert. Die Einnahmen erfasst ihr am Abend per Kassenbericht.'}</p>
-      <p class="klein">Alle Daten bleiben auf diesem Handy. Es wird nichts an einen Server geschickt, nur die Links, die du selbst teilst, enthalten Preise oder Abrechnungen.</p>
+        ? 'Die ausgegebenen Getränke werden gezählt („Zählung“ und „Gesamt“ sind eingeschaltet).'
+        : 'Nur Rechner: Es wird nichts gespeichert.'}</p>
+      <p class="klein">Alle Daten bleiben auf diesem Handy. Es wird nichts an einen Server geschickt, nur die Links, die du selbst teilst, enthalten Preise oder Zähllisten.</p>
       <p class="klein">Version ${esc(VERSION)}</p>
     </section>`;
 
@@ -584,7 +588,7 @@ function renderEinstellungen() {
       </section>
       <section class="karte">
         <h3>Neue Preisliste bekommen</h3>
-        <p class="klein">Hat jemand die Preise geändert, öffne den Link oder scanne den QR-Code mit der Kamera. Nutzt du die Kasse auf dem iPhone über ein Symbol auf dem Home-Bildschirm, füge den Link lieber hier ein:</p>
+        <p class="klein">Hat jemand die Preise geändert, öffne den Link oder scanne den QR-Code mit der Kamera. Nutzt du die Rechenhilfe auf dem iPhone über ein Symbol auf dem Home-Bildschirm, füge den Link lieber hier ein:</p>
         ${importFormHtml()}
         <p class="klein fuss">Deine Preisliste: ${S.config.stand ? `Stand ${datum(S.config.stand)}` : 'Startwerte, noch nie geändert'} · ${S.config.getraenke.length} Getränke</p>
       </section>
@@ -607,7 +611,7 @@ function renderEinstellungen() {
     </div>`).join('');
 
   el.innerHTML = `
-    ${S.config.pinHash ? '' : '<p class="warnung">Die Kasse nutzt noch die Standard-PIN 1234. Bitte unten ändern.</p>'}
+    ${S.config.pinHash ? '' : '<p class="warnung">Es gilt noch die Standard-PIN 1234. Bitte unten ändern.</p>'}
     <section class="karte">
       <h3>Getränke</h3>
       <div class="edit-liste">${zeilen}</div>
@@ -618,22 +622,22 @@ function renderEinstellungen() {
       <label class="feld">Pfand pro Glas oder Flasche (€)
         <input class="eingabe" data-feld="pfandbetrag" value="${esc(entwurf.pfand)}" inputmode="decimal">
       </label>
-      <p class="klein fuss">Voreinstellung für jede neue Bestellung:</p>
+      <p class="klein fuss">Voreinstellung für jede neue Ausgabe:</p>
       <div class="pfandschalter">
         <button type="button" class="an" data-action="e-pfand-standard" data-wert="1" aria-pressed="${entwurf.pfandStandardAn}">Mit Pfand</button>
         <button type="button" class="aus" data-action="e-pfand-standard" data-wert="0" aria-pressed="${!entwurf.pfandStandardAn}">Ohne Pfand</button>
       </div>
     </section>
     <section class="karte">
-      <h3>Verkäufe mitzählen</h3>
-      <p class="klein">Schaltet „Abend“ (Tagesübersicht, Storno, Abrechnung senden, CSV) und „Gesamt“ (Abrechnungen sammeln) ein oder aus. Ausgeschaltet ist die App eine reine Rechenhilfe und speichert keine Verkäufe.</p>
-      <div class="schalter" role="group" aria-label="Verkäufe mitzählen">
+      <h3>Getränkeausgaben zählen</h3>
+      <p class="klein">Zählt, wie viele Getränke welcher Sorte ausgegeben wurden (Strichliste). Schaltet die Bereiche „Zählung“ und „Gesamt“ ein oder aus. Gezählt werden nur Mengen, nie einzelne Zahlungen.</p>
+      <div class="schalter" role="group" aria-label="Getränkeausgaben zählen">
         <button type="button" data-action="e-zaehlen" data-wert="0" aria-pressed="${!entwurf.zaehlen}">Aus: nur Rechner</button>
-        <button type="button" data-action="e-zaehlen" data-wert="1" aria-pressed="${entwurf.zaehlen}">An: mitzählen</button>
+        <button type="button" data-action="e-zaehlen" data-wert="1" aria-pressed="${entwurf.zaehlen}">An: zählen</button>
       </div>
       ${entwurf.zaehlen
-        ? '<p class="warnung fuss">Eingeschaltet zeichnet die App Verkäufe elektronisch auf. Sie kann dann steuerlich als elektronische Kasse gelten (KassenSichV), und dafür fehlt ihr u. a. die vorgeschriebene TSE. Nur einschalten, wenn Vorstand oder Steuerberatung das geklärt haben.</p>'
-        : '<p class="klein fuss">Die Einnahmen erfasst ihr dann am Abend per Kassenbericht: Kasse zählen, Wechselgeld vom Anfang abziehen, bar bezahlte Ausgaben (mit Beleg) wieder dazurechnen, unterschreiben und aufbewahren.</p>'}
+        ? '<p class="klein fuss">Die Strichliste ersetzt den Kassenbericht nicht: Was eingenommen wurde, zählt ihr am Abend in der Kasse. Ladet die Zählliste als CSV herunter und hebt sie zusammen mit dem Kassenbericht auf, bevor ihr die Zählung zurücksetzt.</p>'
+        : '<p class="klein fuss">Ausgeschaltet speichert die Seite gar nichts, sie rechnet nur.</p>'}
     </section>
     <p id="e-fehler" class="warnung" hidden></p>
     <div class="knopfleiste">
@@ -654,7 +658,7 @@ function renderEinstellungen() {
         </div>
         <button class="knopf voll">PIN speichern</button>
       </form>
-      <p class="klein fuss">Die PIN schützt nur vor versehentlichen Änderungen. Die Seite ist öffentlich, wer sich mit Webseiten auskennt, kommt auch ohne PIN weiter. Die PIN wird mit der Preisliste an die anderen Handys weitergegeben.</p>
+      <p class="klein fuss">Die PIN schützt nur vor versehentlichen Änderungen an der Theke. Die Seite ist öffentlich, wer sich mit Webseiten auskennt, kommt auch ohne PIN weiter. Die PIN wird mit der Preisliste an die anderen Handys weitergegeben.</p>
     </section>
     <button type="button" class="knopf voll" data-action="sperren">Einstellungen sperren</button>
     ${ueber}`;
@@ -784,7 +788,7 @@ function preiseTeilen() {
     titel: 'Preisliste teilen',
     erklaerung: 'Die anderen scannen den QR-Code mit der Handykamera oder öffnen den Link und tippen auf „Übernehmen“.',
     link: `${linkBasis()}#preise=${K.preislisteZuCode(S.config)}`,
-    text: 'York:Wandelbar – neue Preisliste für die Kasse',
+    text: 'York:Wandelbar – neue Preisliste für die Rechenhilfe',
   });
 }
 
@@ -945,7 +949,7 @@ const AKTIONEN = {
     const alt = S.bestellung;
     S.bestellung = K.neueBestellung(S.config);
     bestellungGeaendert();
-    toast('Bestellung verworfen', {
+    toast('Ausgabe verworfen', {
       text: 'Rückgängig',
       fn: () => {
         S.bestellung = alt;
@@ -976,11 +980,11 @@ const AKTIONEN = {
     speichern('abend', S.abend);
     schliesseDialog();
     render();
-    toast('Letzte Bestellung storniert');
+    toast('Letzte Ausgabe zurückgenommen');
   },
   'csv-abend'() {
     const a = K.abrechnungAusAbend(S.abend, S.name);
-    ladeCsv('abend', K.zusammenfuehren([a], reihenfolge()), { titel: `Abrechnung ${S.name || 'ohne Namen'}` });
+    ladeCsv('zaehlliste', K.zusammenfuehren([a], reihenfolge()), { titel: `Zählliste ${S.name || 'ohne Namen'}` });
   },
   'neuer-abend': neuerAbendFragen,
   'neuer-abend-ja'() {
@@ -988,7 +992,7 @@ const AKTIONEN = {
     speichern('abend', S.abend);
     schliesseDialog();
     render();
-    toast('Neuer Abend gestartet');
+    toast('Neue Zählung gestartet');
   },
 
   'quelle-entfernen'(btn) {
@@ -998,12 +1002,12 @@ const AKTIONEN = {
   },
   'csv-gesamt'() {
     const quellen = gesamtQuellen();
-    ladeCsv('gesamt', K.zusammenfuehren(quellen, reihenfolge()), { titel: 'Gesamtabrechnung', quellen });
+    ladeCsv('gesamt', K.zusammenfuehren(quellen, reihenfolge()), { titel: 'Alle Zähllisten', quellen });
   },
   'gesamt-leeren'() {
     bestaetige({
       titel: 'Gesamtliste leeren?',
-      text: '<p>Alle übernommenen Abrechnungen werden von diesem Handy entfernt. Die Zählung dieses Handys bleibt.</p>',
+      text: '<p>Alle übernommenen Zähllisten werden von diesem Handy entfernt. Die eigene Zählung bleibt.</p>',
       ja: 'Leeren',
       aktion: 'gesamt-leeren-ja',
       gefahr: true,
@@ -1154,7 +1158,7 @@ function wachFreigeben() {
 function wachStatusText() {
   if (!kannWach) return 'Dieser Browser kann das Display nicht wach halten. Stell stattdessen in den Handy-Einstellungen die automatische Bildschirmsperre auf einen längeren Wert.';
   if (!S.wach) return 'Das Handy sperrt sich wie gewohnt.';
-  if (wakeLock) return 'Aktiv: Das Display bleibt an, solange die Kasse im Vordergrund offen ist.';
+  if (wakeLock) return 'Aktiv: Das Display bleibt an, solange die Seite im Vordergrund offen ist.';
   return 'Wird beim nächsten Antippen aktiviert. Klappt es nicht, ist vielleicht der Energiesparmodus an.';
 }
 
