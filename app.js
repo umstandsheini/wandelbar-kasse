@@ -39,6 +39,37 @@ speichern('config', S.config);
 speichern('abend', S.abend);
 speichern('bestellung', S.bestellung);
 
+// Ist die Seite auf demselben Handy mehrfach offen (z. B. zwei Tabs), dürfen sich die
+// Tabs nicht gegenseitig überschreiben: vor jeder Änderung den gespeicherten Stand holen.
+function aendereAbend(fn) {
+  S.abend = fn(laden('abend', null) || S.abend);
+  speichern('abend', S.abend);
+  return S.abend;
+}
+
+function aendereGesamt(fn) {
+  S.gesamt = fn(laden('gesamt', []));
+  speichern('gesamt', S.gesamt);
+  return S.gesamt;
+}
+
+function ausSpeicherAuffrischen() {
+  const config = laden('config', null);
+  if (config && Array.isArray(config.getraenke)) S.config = config;
+  S.abend = laden('abend', null) || S.abend;
+  S.gesamt = laden('gesamt', []);
+  S.name = laden('name', '');
+  S.mitEigenem = laden('mitEigenem', true);
+  S.bestellung = laden('bestellung', null) || S.bestellung;
+}
+
+window.addEventListener('storage', (e) => {
+  if (e.key && !e.key.startsWith(PREFIX)) return;
+  ausSpeicherAuffrischen();
+  if (!S.config.zaehlen && ZAEHL_ANSICHTEN.includes(ansicht)) zeige('kasse');
+  else render();
+});
+
 // ---------- UI-Zustand ----------
 
 let ansicht = 'kasse';
@@ -256,9 +287,8 @@ function buchen() {
     });
     return;
   }
-  S.abend = K.abendBuchen(S.abend, K.buchungAus(sum));
+  aendereAbend((a) => K.abendBuchen(a, K.buchungAus(sum)));
   S.bestellung = K.neueBestellung(S.config);
-  speichern('abend', S.abend);
   speichern('bestellung', S.bestellung);
   render();
   toast(`${betrag} · gezählt`);
@@ -325,10 +355,7 @@ function abrechnungSenden() {
     hinweis: S.name ? '' : 'Tipp: Trag unter „Zählung“ deinen Namen ein, damit klar ist, von wem die Liste stammt.',
     link: `${linkBasis()}#zaehlliste=${K.abrechnungZuCode(a)}`,
     text: `York:Wandelbar – Zählliste von ${S.name || 'ohne Namen'}: ${a.verkauft.reduce((s, [, n]) => s + n, 0)} Getränke, rechnerisch ${K.euro(K.einnahmen(a))}`,
-    fertig: () => {
-      S.abend.gesendet = true;
-      speichern('abend', S.abend);
-    },
+    fertig: () => aendereAbend((a) => ({ ...a, gesendet: true })),
   });
 }
 
@@ -436,10 +463,8 @@ function zaehlDatenText() {
 }
 
 function zaehlDatenLoeschen() {
-  S.abend = K.neuerAbend();
-  S.gesamt = [];
-  speichern('abend', S.abend);
-  speichern('gesamt', S.gesamt);
+  aendereAbend(() => K.neuerAbend());
+  aendereGesamt(() => []);
 }
 
 function zeigePreisImport(p) {
@@ -527,10 +552,12 @@ function abrechnungUebernehmen() {
   const a = ausstehend;
   schliesseDialog();
   if (!a) return;
-  const i = S.gesamt.findIndex((x) => x.id === a.id);
-  if (i >= 0) S.gesamt[i] = a;
-  else S.gesamt.push(a);
-  speichern('gesamt', S.gesamt);
+  aendereGesamt((g) => {
+    const i = g.findIndex((x) => x.id === a.id);
+    if (i >= 0) g[i] = a;
+    else g.push(a);
+    return g;
+  });
   zeige('gesamt');
   toast(`Zählliste von ${a.name || '(ohne Name)'} übernommen`);
 }
@@ -572,6 +599,7 @@ function renderEinstellungen() {
         ? 'Die ausgegebenen Getränke werden gezählt („Zählung“ und „Gesamt“ sind eingeschaltet).'
         : 'Nur Rechner: Es wird nichts gespeichert.'}</p>
       <p class="klein">Alle Daten bleiben auf diesem Handy. Es wird nichts an einen Server geschickt, nur die Links, die du selbst teilst, enthalten Preise oder Zähllisten.</p>
+      <p class="klein" id="offline-status">Offline-Bereitschaft wird geprüft …</p>
       <p class="klein">Version ${esc(VERSION)}</p>
     </section>`;
 
@@ -593,6 +621,7 @@ function renderEinstellungen() {
         <p class="klein fuss">Deine Preisliste: ${S.config.stand ? `Stand ${datum(S.config.stand)}` : 'Startwerte, noch nie geändert'} · ${S.config.getraenke.length} Getränke</p>
       </section>
       ${ueber}`;
+    zeigeOfflineStatus();
     return;
   }
 
@@ -662,6 +691,7 @@ function renderEinstellungen() {
     </section>
     <button type="button" class="knopf voll" data-action="sperren">Einstellungen sperren</button>
     ${ueber}`;
+  zeigeOfflineStatus();
 }
 
 async function pinHash(pin) {
@@ -976,8 +1006,7 @@ const AKTIONEN = {
   'abrechnung-senden': abrechnungSenden,
   storno: stornoFragen,
   'storno-ja'() {
-    S.abend = K.abendStornieren(S.abend);
-    speichern('abend', S.abend);
+    aendereAbend(K.abendStornieren);
     schliesseDialog();
     render();
     toast('Letzte Ausgabe zurückgenommen');
@@ -988,16 +1017,14 @@ const AKTIONEN = {
   },
   'neuer-abend': neuerAbendFragen,
   'neuer-abend-ja'() {
-    S.abend = K.neuerAbend();
-    speichern('abend', S.abend);
+    aendereAbend(() => K.neuerAbend());
     schliesseDialog();
     render();
     toast('Neue Zählung gestartet');
   },
 
   'quelle-entfernen'(btn) {
-    S.gesamt = S.gesamt.filter((a) => a.id !== btn.dataset.id);
-    speichern('gesamt', S.gesamt);
+    aendereGesamt((g) => g.filter((a) => a.id !== btn.dataset.id));
     renderGesamt();
   },
   'csv-gesamt'() {
@@ -1014,8 +1041,7 @@ const AKTIONEN = {
     });
   },
   'gesamt-leeren-ja'() {
-    S.gesamt = [];
-    speichern('gesamt', S.gesamt);
+    aendereGesamt(() => []);
     schliesseDialog();
     renderGesamt();
   },
@@ -1198,6 +1224,36 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (updateAngefordert) location.reload();
   });
+  // Lücken im Offline-Cache schließen lassen (z. B. nachdem der Browser Speicher freigeräumt hat)
+  navigator.serviceWorker.ready.then((reg) => {
+    (reg.active || navigator.serviceWorker.controller)?.postMessage('cache-pruefen');
+    setTimeout(zeigeOfflineStatus, 1500);
+  }).catch(() => {});
+}
+
+const OFFLINE_DATEIEN = 11;
+
+async function offlineStatusText() {
+  if (!('serviceWorker' in navigator) || !('caches' in window)) return 'Offline-Betrieb: von diesem Browser nicht unterstützt.';
+  try {
+    // Nach einem Update kann kurz noch der Cache der Vorversion gelten
+    const namen = (await caches.keys()).filter((k) => k.startsWith('wandelbar-kasse-'));
+    let n = 0;
+    for (const name of namen) {
+      const c = await caches.open(name);
+      n = Math.max(n, (await c.keys()).length);
+    }
+    if (n >= OFFLINE_DATEIEN) return 'Offline einsatzbereit: Die Seite läuft auch ohne Internet weiter.';
+    if (n === 0) return 'Offline noch nicht bereit. Lade die Seite mit Internet einmal neu.';
+    return `Offline wird vorbereitet (${n} von ${OFFLINE_DATEIEN} Dateien). Seite mit Internet kurz offen lassen.`;
+  } catch {
+    return 'Offline-Bereitschaft nicht prüfbar.';
+  }
+}
+
+async function zeigeOfflineStatus() {
+  const el = $('#offline-status');
+  if (el) el.textContent = await offlineStatusText();
 }
 
 // ---------- Start ----------
