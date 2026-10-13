@@ -826,13 +826,27 @@ function preiseTeilen() {
 
 const dialog = $('#dialog');
 
+// Sehr alte Browser (z. B. iOS vor 15.4) kennen <dialog> nicht – dann einfach einblenden
+const kannDialog = typeof dialog.showModal === 'function';
+
 function oeffneDialog(html) {
   dialog.innerHTML = `<div class="dialog-innen">${html}</div>`;
-  if (!dialog.open) dialog.showModal();
+  if (kannDialog) {
+    if (!dialog.open) dialog.showModal();
+  } else {
+    dialog.setAttribute('open', '');
+    dialog.classList.add('ersatz');
+  }
 }
 
 function schliesseDialog() {
-  if (dialog.open) dialog.close();
+  if (kannDialog) {
+    if (dialog.open) dialog.close();
+    return;
+  }
+  dialog.removeAttribute('open');
+  dialog.classList.remove('ersatz');
+  dialog.dispatchEvent(new Event('close'));
 }
 
 dialog.addEventListener('close', () => {

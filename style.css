@@ -360,6 +360,19 @@ main { max-width: 720px; margin: 0 auto; padding: 14px 16px 0; }
 }
 
 .dialog::backdrop { background: rgb(0 0 0 / 0.45); }
+
+/* Rückfall für Browser ohne <dialog>-Unterstützung */
+.dialog.ersatz {
+  display: block;
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: auto;
+  z-index: 40;
+  overflow-y: auto;
+  border-top: 2px solid var(--akzent);
+}
 .dialog-innen { padding: 18px 16px calc(16px + env(safe-area-inset-bottom)); }
 .dialog table { margin-top: 6px; }
 .dialog details summary { cursor: pointer; padding: 6px 0; }
